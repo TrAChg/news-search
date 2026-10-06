@@ -1,0 +1,44 @@
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Node.js (Frontend)
+node_modules/
+dist/
+build/
+.npm/
+.next/
+
+# Data & Models (Never commit large data or models!)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+*.npy
+*.pt
+*.pth
+*.onnx
+
+# Vector Database
+chroma_db/
+.chroma/
+
+# Environment variables
+.env
+
+# OS Files
+.DS_Store
+Thumbs.db
