@@ -1,0 +1,40 @@
+[project]
+name = "historical-news-search"
+version = "0.1.0"
+description = "Multilingual search for historical French newspaper images"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.2",
+    "opencv-python>=4.8.1.78",
+    "Pillow>=10.0.1",
+    "pandas>=2.1.1",
+    "torch>=2.1.0",
+    "transformers>=4.34.0",
+    "sentence-transformers>=2.2.2",
+    "chromadb>=0.4.14",
+    "fastapi>=0.103.2",
+    "uvicorn>=0.23.2",
+    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
+    "jupyterlab>=4.0.7",
+    "tqdm>=4.66.1",
+]
+
+[tool.ruff]
+# Enable Pyflakes (F) and pycodestyle (E, W)
+select = ["E", "F", "W", "I"] # "I" is for isort (sorting imports)
+ignore = []
+line-length = 88
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+strict = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

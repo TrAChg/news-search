@@ -1,0 +1,12 @@
+{
+  "name": "historical-news-search",
+  "version": "1.0.0",
+  "description": "![Project Status](https://img.shields.io/badge/Status-Planning-blue) ![AI Model](https://img.shields.io/badge/Model-mCLIP-orange) ![Backend](https://img.shields.io/badge/Backend-FastAPI-green) ![Frontend](https://img.shields.io/badge/Frontend-React-blue)",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}

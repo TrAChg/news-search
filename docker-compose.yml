@@ -1,0 +1,34 @@
+services:
+  # Metadata Database (PostgreSQL)
+  postgres:
+    image: postgres:16-alpine
+    container_name: gallica_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gallica_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gallica_password}
+      POSTGRES_DB: ${POSTGRES_DB:-gallica_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Vector Database (ChromaDB)
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: gallica_chromadb
+    restart: unless-stopped
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+      - ANONYMIZED_TELEMETRY=FALSE
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+volumes:
+  postgres_data:
+    driver: local
+  chroma_data:
+    driver: local
