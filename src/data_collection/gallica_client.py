@@ -40,7 +40,7 @@ class GallicaClient:
         response = requests.get(
             self.base_sru_url, params=params, impersonate="chrome120", timeout=15
         )
-        response.raise_for_status()
+        response.raise_for_status()  # type: ignore[no-untyped-call]
 
         soup = BeautifulSoup(response.content, "xml")
         records = soup.find_all("srw:record")
@@ -69,10 +69,12 @@ class GallicaClient:
     def download_page_img(self, iiif_url: str, out_path: Path) -> Path:
         """Download img from an IIIF URL and save it to Out Path"""
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        response = requests.get(iiif_url, impersonate="chrome120", timeout=30)
-        response.raise_for_status()
+        response = requests.get(
+            iiif_url, stream=True, impersonate="chrome120", timeout=30
+        )
+        response.raise_for_status()  # type: ignore[no-untyped-call]
         with open(out_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=1024):
+            for chunk in response.iter_content(chunk_size=8192):  # type: ignore[no-untyped-call]
                 if chunk:
                     f.write(chunk)
         return out_path
