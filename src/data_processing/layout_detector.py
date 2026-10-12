@@ -9,15 +9,7 @@ import numpy as np
 
 @dataclass
 class ExtractedIllustration:
-    """Represents a cropped illustration with spatial bounding box and metadata.
-
-    Attributes:
-        bbox: (x, y, width, height) in original image coordinates.
-        area: Area in pixels (width * height).
-        aspect_ratio: Ratio width / height.
-        confidence: Fill confidence score [0.0, 1.0].
-        image_crop: Extracted image crop as a numpy uint8 array.
-    """
+    """Represents a cropped illustration with spatial bounding box and metadata."""
 
     bbox: tuple[int, int, int, int]
     area: int
@@ -38,11 +30,7 @@ class _CandidateBox:
 
 
 class LayoutDetector:
-    """Extracts illustrations and photographs from historical newspaper page scans.
-
-    Uses classical OpenCV contour analysis, Otsu adaptive thresholding,
-    and morphological filtering to separate large illustrations from text blocks.
-    """
+    """Extracts illustrations and photographs from historical newspaper page scans."""
 
     def __init__(
         self,
@@ -56,7 +44,6 @@ class LayoutDetector:
         morph_kernel_size: tuple[int, int] = (7, 7),
     ) -> None:
         """Initialize detector with geometric and morphological constraints.
-
         Args:
             min_width: Minimum width in pixels for a valid illustration.
             min_height: Minimum height in pixels for a valid illustration.
@@ -88,14 +75,7 @@ class LayoutDetector:
     def detect(
         self, image_input: np.ndarray | Path | str
     ) -> list[ExtractedIllustration]:
-        """Detect illustrations on the provided newspaper page.
-
-        Args:
-            image_input: Numpy image array or path to an image file.
-
-        Returns:
-            List of detected ExtractedIllustration instances.
-        """
+        """Detect illustrations on the provided newspaper page."""
         image = self._load_image(image_input)
         h, w = image.shape[:2]
         page_area = h * w
@@ -203,16 +183,7 @@ class LayoutDetector:
         output_dir: Path | str,
         prefix: str = "crop",
     ) -> list[Path]:
-        """Save extracted illustration crops to disk as JPEG files.
-
-        Args:
-            illustrations: List of detected ExtractedIllustration objects.
-            output_dir: Directory where crops will be written.
-            prefix: Filename prefix for the saved files.
-
-        Returns:
-            List of Path objects to the saved crop files.
-        """
+        """Save extracted illustration crops to disk as JPEG files."""
         out_path = Path(output_dir)
         out_path.mkdir(parents=True, exist_ok=True)
 
@@ -234,17 +205,7 @@ class LayoutDetector:
         color: tuple[int, int, int] = (0, 255, 0),
         thickness: int = 2,
     ) -> np.ndarray:
-        """Draw bounding boxes and labels on a copy of the original page image.
-
-        Args:
-            image_input: Numpy image array or path to image.
-            illustrations: Detected ExtractedIllustration instances.
-            color: Box color in BGR tuple (default: bright green).
-            thickness: Line thickness in pixels.
-
-        Returns:
-            Annotated image copy as a numpy array.
-        """
+        """Draw bounding boxes and labels on a copy of the original page image."""
         image = self._load_image(image_input)
         annotated = image.copy()
         if len(annotated.shape) == 2:
@@ -266,3 +227,81 @@ class LayoutDetector:
             )
 
         return annotated
+
+    def get_intermediate_stages(
+        self, image_input: np.ndarray | Path | str
+    ) -> dict[str, np.ndarray]:
+        """Extract all intermediate visual steps of the detection pipeline.
+
+        Returns a dictionary mapping step names to their corresponding image arrays:
+        - '1_grayscale': Monochrome intensity image
+        - '2_gaussian_blur': Grain-smoothed image
+        - '3_otsu_binary': Inverted binary ink mask
+        - '4_morph_closed': Morphologically fused blocks
+        - '5_raw_contours': Input image with all detected raw contours
+        - '6_final_illustrations': Input image with final accepted illustration boxes
+        """
+        image = self._load_image(image_input)
+
+        # 1. Grayscale
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image.copy()
+
+        # 2. Gaussian Blur
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # 3. Otsu Binarization
+        _, thresh = cv2.threshold(
+            blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )
+
+        # 4. Morphological Closing
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, self.morph_kernel_size)
+        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+        # 5. Raw Contours
+        contours, _ = cv2.findContours(
+            closed.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE
+        )
+        base_color = image.copy()
+        if len(base_color.shape) == 2:
+            base_color = cv2.cvtColor(base_color, cv2.COLOR_GRAY2BGR)
+        raw_contours_img = base_color.copy()
+        cv2.drawContours(raw_contours_img, contours, -1, (0, 0, 255), 1)
+
+        # 6. Final Filtered Illustrations
+        illustrations = self.detect(image)
+        final_boxes_img = self.draw_bounding_boxes(image, illustrations)
+
+        return {
+            "1_grayscale": gray,
+            "2_gaussian_blur": blurred,
+            "3_otsu_binary": thresh,
+            "4_morph_closed": closed,
+            "5_raw_contours": raw_contours_img,
+            "6_final_illustrations": final_boxes_img,
+        }
+
+    def save_intermediate_stages(
+        self,
+        image_input: np.ndarray | Path | str,
+        output_dir: Path | str,
+        prefix: str = "stage",
+    ) -> dict[str, Path]:
+        """Save all intermediate pipeline steps as image files to disk."""
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        stages = self.get_intermediate_stages(image_input)
+        saved_paths: dict[str, Path] = {}
+
+        for stage_name, stage_img in stages.items():
+            file_path = out_path / f"{prefix}_{stage_name}.jpg"
+            success = cv2.imwrite(str(file_path), stage_img)
+            if not success:
+                raise IOError(f"Failed to write stage image to {file_path}")
+            saved_paths[stage_name] = file_path
+
+        return saved_paths

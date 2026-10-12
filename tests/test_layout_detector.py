@@ -24,7 +24,6 @@ def test_detects_prominent_illustration_and_rejects_text_and_noise() -> None:
     page = np.full((1000, 800, 3), 255, dtype=np.uint8)
 
     # 1. Main illustration: 350w x 400h at (100, 150)
-    # Fill with dark content (e.g. 30 intensity)
     cv2.rectangle(page, (100, 150), (450, 550), (30, 30, 30), -1)
 
     # 2. Text column lines: thin strips (w=200, h=10)
@@ -138,3 +137,59 @@ def test_page_with_full_border_frame_extracts_inner_illustration() -> None:
     assert (bx + bw) >= 500 and (by + bh) >= 600
     # Outer frame must not be returned
     assert bw * bh < (1000 * 800 * 0.85)
+
+
+def test_intermediate_stages_extraction_and_properties() -> None:
+    """Verify all pipeline stages are extracted with expected dimensions and values."""
+    page = np.full((600, 600, 3), 255, dtype=np.uint8)
+    cv2.rectangle(page, (100, 100), (350, 350), (40, 40, 40), -1)
+
+    detector = LayoutDetector(min_width=100, min_height=100, min_area_ratio=0.03)
+    stages = detector.get_intermediate_stages(page)
+
+    expected_keys = [
+        "1_grayscale",
+        "2_gaussian_blur",
+        "3_otsu_binary",
+        "4_morph_closed",
+        "5_raw_contours",
+        "6_final_illustrations",
+    ]
+    for key in expected_keys:
+        assert key in stages
+        assert isinstance(stages[key], np.ndarray)
+
+    # 1. Grayscale should be 2D
+    assert stages["1_grayscale"].ndim == 2
+    assert stages["1_grayscale"].shape == (600, 600)
+
+    # 2. Gaussian blur should have same shape as grayscale
+    assert stages["2_gaussian_blur"].shape == (600, 600)
+
+    # 3. Otsu binary must be 0 and 255 only
+    unique_vals = set(np.unique(stages["3_otsu_binary"]))
+    assert unique_vals.issubset({0, 255})
+
+    # 4. Morphological closed must also be binary
+    unique_morph = set(np.unique(stages["4_morph_closed"]))
+    assert unique_morph.issubset({0, 255})
+
+    # 5 & 6. Contours and Final illustration drawings should be 3-channel BGR
+    assert stages["5_raw_contours"].ndim == 3
+    assert stages["6_final_illustrations"].ndim == 3
+
+
+def test_save_intermediate_stages_exports_image_files(tmp_path: Path) -> None:
+    """Verify that save_intermediate_stages writes valid JPEG files for each step."""
+    page = np.full((600, 600, 3), 255, dtype=np.uint8)
+    cv2.rectangle(page, (100, 100), (350, 350), (40, 40, 40), -1)
+
+    detector = LayoutDetector(min_width=100, min_height=100, min_area_ratio=0.03)
+    out_dir = tmp_path / "pipeline_debug"
+    saved = detector.save_intermediate_stages(page, out_dir, prefix="step")
+
+    assert len(saved) == 6
+    for file_path in saved.values():
+        assert file_path.exists()
+        assert file_path.stat().st_size > 0
+        assert file_path.suffix == ".jpg"

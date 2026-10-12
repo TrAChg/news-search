@@ -40,7 +40,7 @@ class GallicaClient:
         response = requests.get(
             self.base_sru_url, params=params, impersonate="chrome120", timeout=15
         )
-        response.raise_for_status()  # type: ignore[no-untyped-call]
+        response.raise_for_status()
 
         soup = BeautifulSoup(response.content, "xml")
         records = soup.find_all("srw:record")
@@ -72,9 +72,9 @@ class GallicaClient:
         response = requests.get(
             iiif_url, stream=True, impersonate="chrome120", timeout=30
         )
-        response.raise_for_status()  # type: ignore[no-untyped-call]
+        response.raise_for_status()
         with open(out_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):  # type: ignore[no-untyped-call]
+            for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
         return out_path
