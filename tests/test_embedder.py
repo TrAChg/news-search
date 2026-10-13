@@ -65,3 +65,18 @@ def test_embed_image_from_path(
 
     assert result == pytest.approx([0.7, 0.8, 0.9])
     assert mock_model.encode.call_count == 1
+
+
+def test_compar_text() -> None:
+    """Verify the simularity between the same words but with diff languges."""
+    embedder = MultimodalEmbedder()
+
+    vec_fr = embedder.embed_text("un soldat")
+    vec_en = embedder.embed_text("a soldier")
+    vec_vn = embedder.embed_text("một chiến binh")
+
+    similarity_fr_en = embedder.compute_similarity(vec_fr, vec_en)
+    similarity_vn_en = embedder.compute_similarity(vec_en, vec_vn)
+
+    assert similarity_vn_en >= 0.8
+    assert similarity_fr_en >= 0.8
