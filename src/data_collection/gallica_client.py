@@ -66,15 +66,35 @@ class GallicaClient:
             list_dict_infor.append(dict_infor)
         return list_dict_infor
 
-    def download_page_img(self, iiif_url: str, out_path: Path) -> Path:
-        """Download img from an IIIF URL and save it to Out Path"""
+    def download_page_img(
+        self,
+        iiif_url: str,
+        out_path: Path,
+        max_retries: int = 3,
+        retry_delay: float = 2.0,
+    ) -> Path:
+        """Download img from an IIIF URL with retry backoff and save to out_path."""
+        import time
+
         out_path.parent.mkdir(parents=True, exist_ok=True)
-        response = requests.get(
-            iiif_url, stream=True, impersonate="chrome120", timeout=30
-        )
-        response.raise_for_status()
-        with open(out_path, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
+        last_exc: Exception | None = None
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                response = requests.get(
+                    iiif_url, stream=True, impersonate="chrome120", timeout=30
+                )
+                response.raise_for_status()
+                with open(out_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                return out_path
+            except Exception as exc:
+                last_exc = exc
+                if attempt < max_retries:
+                    time.sleep(retry_delay * attempt)
+
+        if last_exc is not None:
+            raise last_exc
         return out_path

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallica Visual Search — Multimodal Historical Press</title>
+  <meta name="description" content="Multilingual AI-powered semantic search engine for historical French newspaper archives and illustrations using CLIP and ChromaDB.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/ui/style.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Gallica<span class="gradient-text">Lens</span></h1>
+          <span class="tagline">Multimodal Historical Archive Search</span>
+        </div>
+      </div>
+      <div class="status-container">
+        <div class="status-indicator">
+          <span class="pulse-dot"></span>
+          <span id="system-status-text">Connecting to Vector Store...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Hero Search Section -->
+    <main class="content-container">
+      <section class="hero-section">
+        <div class="badge-pill">
+          <span>AI & Computer Vision Ingestion</span>
+          <span class="badge-dot">•</span>
+          <span>CLIP ViT-B/32 Multilingual</span>
+        </div>
+        <h2 class="hero-title">
+          Search French Historical Press with <span class="gradient-text">Natural Language</span>
+        </h2>
+        <p class="hero-subtitle">
+          Query 20th-century newspaper illustrations in French, English, or Vietnamese. Powered by deep visual embeddings and HNSW vector search.
+        </p>
+
+        <!-- Search Bar -->
+        <div class="search-card">
+          <form id="search-form" class="search-form">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="Describe an illustration... (e.g. 'soldats dans les tranchées', 'a war general', 'chiến tranh')" 
+                autocomplete="off"
+                required
+              >
+              <button type="button" id="clear-btn" class="clear-btn" aria-label="Clear query">&times;</button>
+            </div>
+            <button type="submit" id="search-btn" class="submit-btn">
+              <span>Search</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
+          </form>
+
+          <!-- Query Suggestions Chips -->
+          <div class="suggestions-wrapper">
+            <span class="suggestions-label">Try sample queries:</span>
+            <div class="chips-list">
+              <button class="chip" data-query="un soldat en uniforme">🇫🇷 un soldat en uniforme</button>
+              <button class="chip" data-query="a soldier on the battlefield">🇬🇧 a soldier on the battlefield</button>
+              <button class="chip" data-query="chiến binh và quân đội">🇻🇳 chiến binh và quân đội</button>
+              <button class="chip" data-query="cavalry and military horses">🇬🇧 military horses</button>
+              <button class="chip" data-query="carte de guerre et tranchées">🇫🇷 carte de guerre</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats Bar -->
+      <section id="results-bar" class="results-bar hidden">
+        <div class="results-info">
+          Found <span id="results-count" class="stat-highlight">0</span> illustrations for 
+          <span id="results-query" class="stat-query">""</span>
+        </div>
+        <div class="latency-info">
+          Vector search latency: <span id="results-latency" class="stat-highlight">0.0</span> ms
+        </div>
+      </section>
+
+      <!-- Results Grid -->
+      <section class="results-section">
+        <!-- Skeleton Loader -->
+        <div id="loader" class="loader-grid hidden">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+
+        <!-- Empty State (Initial or No Results) -->
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+              <line x1="8" y1="21" x2="16" y2="21"/>
+              <line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          </div>
+          <h3>Ready to Explore Archives</h3>
+          <p>Type a keyword or click one of the suggestion chips above to retrieve historical illustration scans.</p>
+        </div>
+
+        <!-- Cards Container -->
+        <div id="cards-grid" class="cards-grid"></div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div class="footer-content">
+        <p>Built with <strong>PyTorch</strong>, <strong>SentenceTransformers</strong>, <strong>ChromaDB</strong>, and <strong>FastAPI</strong>.</p>
+        <p class="data-source">Source scans: Bibliothèque nationale de France (BnF Gallica IIIF API).</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Lightbox Modal for Full View -->
+  <div id="image-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <button id="modal-close" class="modal-close">&times;</button>
+      <div class="modal-body">
+        <div class="modal-image-container">
+          <img id="modal-img" src="" alt="High resolution preview">
+        </div>
+        <div class="modal-details">
+          <div class="modal-badge-row">
+            <span id="modal-score" class="similarity-badge">0.0% Match</span>
+            <span id="modal-distance" class="distance-badge">Distance: 0.0</span>
+          </div>
+          <h3 id="modal-title" class="modal-title">Illustration Detail</h3>
+          
+          <div class="meta-table">
+            <div class="meta-row">
+              <span class="meta-key">ID:</span>
+              <span id="modal-id" class="meta-val font-mono"></span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">Issue ARK:</span>
+              <span id="modal-issue" class="meta-val font-mono"></span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">Page:</span>
+              <span id="modal-page" class="meta-val"></span>
+            </div>
+            <div class="meta-row">
+              <span class="meta-key">File:</span>
+              <span id="modal-filename" class="meta-val font-mono"></span>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <a id="modal-direct-link" href="#" target="_blank" class="action-btn">
+              <span>Open Raw Image</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/ui/app.js"></script>
+</body>
+</html>

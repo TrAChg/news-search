@@ -67,16 +67,20 @@ def test_embed_image_from_path(
     assert mock_model.encode.call_count == 1
 
 
-def test_compar_text() -> None:
+def test_compar_text_img() -> None:
     """Verify the simularity between the same words but with diff languges."""
     embedder = MultimodalEmbedder()
+    img_imput_path = Path("data/processed/bpt6k717093t_p1_crop_0.jpg")
 
     vec_fr = embedder.embed_text("un soldat")
     vec_en = embedder.embed_text("a soldier")
     vec_vn = embedder.embed_text("một chiến binh")
+    vec_img = embedder.embed_image(img_imput_path)
 
     similarity_fr_en = embedder.compute_similarity(vec_fr, vec_en)
     similarity_vn_en = embedder.compute_similarity(vec_en, vec_vn)
+    similarity_img_text = embedder.compute_similarity(vec_en, vec_img)
 
+    assert similarity_img_text >= 0.2
     assert similarity_vn_en >= 0.8
     assert similarity_fr_en >= 0.8

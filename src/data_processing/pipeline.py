@@ -28,7 +28,14 @@ class IngestionPipeline:
             clean_name = ark_id.strip("/").split("/")[-1]
             page_path = raw_dir / f"{clean_name}_p{page}.jpg"
             if not page_path.exists():
-                client.download_page_img(iiif_url, page_path)
+                try:
+                    import time
+
+                    time.sleep(1.0)
+                    client.download_page_img(iiif_url, page_path)
+                except Exception as exc:
+                    print(f"Skipping page {page} due to download error: {exc}")
+                    continue
 
             detector = self.layout_detector
             list_illus = detector.detect(page_path)

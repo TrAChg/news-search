@@ -12,14 +12,16 @@ class MultimodalEmbedder:
     """CLIP - Contrastive Language-Image Pretraining embedding engine."""
 
     def __init__(
-        self, model_name: str = "sentence-transformers/clip-ViT-B-32-multilingual-v1"
+        self,
+        text_model_name: str = "sentence-transformers/clip-ViT-B-32-multilingual-v1",
+        img_model_name: str = "clip-ViT-B-32",
     ) -> None:
-        self.model_name = model_name
-        self.model = SentenceTransformer(model_name)
+        self.text_model = SentenceTransformer(text_model_name)
+        self.img_model = SentenceTransformer(img_model_name)
 
     def embed_text(self, text: str) -> list[float]:
         """Embedder text to a list[float]"""
-        embedding = self.model.encode(text, convert_to_numpy=True)
+        embedding = self.text_model.encode(text, convert_to_numpy=True)
         return cast(list[float], embedding.tolist())
 
     def embed_image(self, image_input: Path | str | Image.Image) -> list[float]:
@@ -33,7 +35,7 @@ class MultimodalEmbedder:
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        embedding = self.model.encode(image, convert_to_numpy=True)
+        embedding = self.img_model.encode(image, convert_to_numpy=True)
         return cast(list[float], embedding.tolist())
 
     @staticmethod

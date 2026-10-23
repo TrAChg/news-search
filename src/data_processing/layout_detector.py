@@ -42,8 +42,16 @@ class LayoutDetector:
         max_aspect_ratio: float = 4.0,
         padding_ratio: float = 0.01,
         morph_kernel_size: tuple[int, int] = (7, 7),
+        min_midtone_ratio: float = 0.40,
+        max_black_ratio: float = 0.40,
+        min_mean_intensity: float = 45.0,
+        max_white_ratio: float = 0.65,
+        min_std_intensity: float = 18.0,
+        max_laplacian_var: float = 9000.0,
+        enable_content_filter: bool = True,
     ) -> None:
-        """Initialize detector with geometric and morphological constraints.
+        """Initialize detector with geometric, morphological, and content constraints.
+
         Args:
             min_width: Minimum width in pixels for a valid illustration.
             min_height: Minimum height in pixels for a valid illustration.
@@ -53,6 +61,13 @@ class LayoutDetector:
             max_aspect_ratio: Maximum width/height aspect ratio.
             padding_ratio: Margin padding around detected bounding box (fraction).
             morph_kernel_size: Kernel dimensions for morphological closing.
+            min_midtone_ratio: Minimum fraction of pixels in midtone range [60, 200].
+            max_black_ratio: Maximum fraction of solid black pixels (< 40).
+            min_mean_intensity: Minimum average grayscale intensity.
+            max_white_ratio: Maximum fraction of paper white background (> 220).
+            min_std_intensity: Minimum standard deviation of grayscale pixels.
+            max_laplacian_var: Maximum Laplacian variance for text edge density.
+            enable_content_filter: If True, evaluates pixel distribution of crops.
         """
         self.min_width = min_width
         self.min_height = min_height
@@ -62,6 +77,60 @@ class LayoutDetector:
         self.max_aspect_ratio = max_aspect_ratio
         self.padding_ratio = padding_ratio
         self.morph_kernel_size = morph_kernel_size
+        self.min_midtone_ratio = min_midtone_ratio
+        self.max_black_ratio = max_black_ratio
+        self.min_mean_intensity = min_mean_intensity
+        self.max_white_ratio = max_white_ratio
+        self.min_std_intensity = min_std_intensity
+        self.max_laplacian_var = max_laplacian_var
+        self.enable_content_filter = enable_content_filter
+
+    def is_valid_illustration(self, crop: np.ndarray) -> bool:
+        """Validate whether a cropped candidate region is a genuine illustration/photo.
+
+        Filters out:
+        1. Solid black blobs (paper tears, shadows, margin ink stains).
+        2. Blank paper / empty margins.
+        3. Text columns (bimodal high-contrast ink + white background).
+        """
+        if not self.enable_content_filter:
+            return True
+
+        if crop.size == 0:
+            return False
+
+        if len(crop.shape) == 3:
+            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = crop
+
+        mean_val = float(np.mean(gray))
+        black_ratio = float(np.mean(gray < 40))
+
+        # 1. Reject solid black blobs (scraps, shadows, tears, scan margins)
+        if mean_val < self.min_mean_intensity or black_ratio > self.max_black_ratio:
+            return False
+
+        white_ratio = float(np.mean(gray > 220))
+        std_val = float(np.std(gray))
+
+        # 2. Reject blank paper / bleached crops
+        if white_ratio > self.max_white_ratio or std_val < self.min_std_intensity:
+            return False
+
+        # 3. Reject text columns (bimodal contrast, low midtones)
+        midtone_ratio = float(np.mean((gray >= 60) & (gray <= 200)))
+        lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+        # Low midtones combined with white background indicates printed text
+        if midtone_ratio < self.min_midtone_ratio and white_ratio > 0.25:
+            return False
+
+        # Extreme text edge density combined with low midtone presence
+        if lap_var > self.max_laplacian_var and midtone_ratio < 0.50:
+            return False
+
+        return True
 
     def _load_image(self, image_input: np.ndarray | Path | str) -> np.ndarray:
         """Ensure input is an RGB/BGR numpy array."""
@@ -154,7 +223,7 @@ class LayoutDetector:
             if not is_contained:
                 accepted.append(cand)
 
-        # Build ExtractedIllustration with safety padding
+        # Build ExtractedIllustration with safety padding and content validation
         illustrations: list[ExtractedIllustration] = []
         for cand in accepted:
             pad_x = int(cand.w * self.padding_ratio)
@@ -165,6 +234,9 @@ class LayoutDetector:
             y_max = min(h, cand.y + cand.h + pad_y)
 
             crop = image[y_min:y_max, x_min:x_max]
+            if not self.is_valid_illustration(crop):
+                continue
+
             illustrations.append(
                 ExtractedIllustration(
                     bbox=(x_min, y_min, x_max - x_min, y_max - y_min),

@@ -23,8 +23,8 @@ def test_detects_prominent_illustration_and_rejects_text_and_noise() -> None:
     # 1000x800 white canvas
     page = np.full((1000, 800, 3), 255, dtype=np.uint8)
 
-    # 1. Main illustration: 350w x 400h at (100, 150)
-    cv2.rectangle(page, (100, 150), (450, 550), (30, 30, 30), -1)
+    # 1. Main illustration: 350w x 400h at (100, 150) with midtone photograph texture
+    cv2.rectangle(page, (100, 150), (450, 550), (120, 120, 120), -1)
 
     # 2. Text column lines: thin strips (w=200, h=10)
     for y_offset in range(600, 750, 25):
@@ -59,6 +59,29 @@ def test_detects_prominent_illustration_and_rejects_text_and_noise() -> None:
     assert ill.confidence > 0.8
 
 
+def test_rejects_solid_black_blob() -> None:
+    """Solid black blobs (ink stains, paper tears) must be filtered out."""
+    page = np.full((1000, 800, 3), 255, dtype=np.uint8)
+    # Solid black rectangle (mean = 10, black ratio = 100%)
+    cv2.rectangle(page, (100, 150), (450, 550), (10, 10, 10), -1)
+
+    detector = LayoutDetector(min_width=150, min_height=150, min_area_ratio=0.03)
+    results = detector.detect(page)
+    assert len(results) == 0
+
+
+def test_rejects_text_columns() -> None:
+    """Dense newspaper text columns with high contrast must be filtered out."""
+    page = np.full((1000, 800, 3), 255, dtype=np.uint8)
+    # Simulate a dense column of text lines with high edge density
+    for y in range(150, 550, 6):
+        cv2.line(page, (100, y), (400, y), (0, 0, 0), 2)
+
+    detector = LayoutDetector(min_width=150, min_height=150, min_area_ratio=0.03)
+    results = detector.detect(page)
+    assert len(results) == 0
+
+
 def test_invalid_image_path_raises_value_error(tmp_path: Path) -> None:
     """Non-existent image path should raise a clear ValueError."""
     detector = LayoutDetector()
@@ -70,7 +93,7 @@ def test_invalid_image_path_raises_value_error(tmp_path: Path) -> None:
 def test_grayscale_input_supported() -> None:
     """Detector should accept 2D single-channel grayscale numpy arrays directly."""
     gray_page = np.full((600, 600), 255, dtype=np.uint8)
-    cv2.rectangle(gray_page, (100, 100), (350, 350), 20, -1)
+    cv2.rectangle(gray_page, (100, 100), (350, 350), 120, -1)
 
     detector = LayoutDetector(min_width=100, min_height=100, min_area_ratio=0.03)
     results = detector.detect(gray_page)
@@ -82,7 +105,7 @@ def test_grayscale_input_supported() -> None:
 def test_save_illustrations(tmp_path: Path) -> None:
     """save_illustrations should write crops to disk and return valid Paths."""
     page = np.full((800, 800, 3), 255, dtype=np.uint8)
-    cv2.rectangle(page, (100, 100), (400, 400), (50, 50, 50), -1)
+    cv2.rectangle(page, (100, 100), (400, 400), (120, 120, 120), -1)
 
     detector = LayoutDetector(min_width=100, min_height=100, min_area_ratio=0.03)
     illustrations = detector.detect(page)
@@ -101,7 +124,7 @@ def test_save_illustrations(tmp_path: Path) -> None:
 def test_draw_bounding_boxes() -> None:
     """draw_bounding_boxes should return an annotated image with boxes drawn."""
     page = np.full((800, 800, 3), 255, dtype=np.uint8)
-    cv2.rectangle(page, (100, 100), (400, 400), (50, 50, 50), -1)
+    cv2.rectangle(page, (100, 100), (400, 400), (120, 120, 120), -1)
 
     detector = LayoutDetector(min_width=100, min_height=100, min_area_ratio=0.03)
     illustrations = detector.detect(page)
@@ -120,7 +143,7 @@ def test_page_with_full_border_frame_extracts_inner_illustration() -> None:
     cv2.rectangle(page, (15, 15), (785, 985), (0, 0, 0), 4)
 
     # Actual illustration inside the frame (350x400)
-    cv2.rectangle(page, (150, 200), (500, 600), (40, 40, 40), -1)
+    cv2.rectangle(page, (150, 200), (500, 600), (120, 120, 120), -1)
 
     detector = LayoutDetector(
         min_width=150,
@@ -142,7 +165,7 @@ def test_page_with_full_border_frame_extracts_inner_illustration() -> None:
 def test_intermediate_stages_extraction_and_properties() -> None:
     """Verify all pipeline stages are extracted with expected dimensions and values."""
     page = np.full((600, 600, 3), 255, dtype=np.uint8)
-    cv2.rectangle(page, (100, 100), (350, 350), (40, 40, 40), -1)
+    cv2.rectangle(page, (100, 100), (350, 350), (120, 120, 120), -1)
 
     detector = LayoutDetector(min_width=100, min_height=100, min_area_ratio=0.03)
     stages = detector.get_intermediate_stages(page)
