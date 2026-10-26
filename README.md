@@ -40,38 +40,7 @@ The **Bibliothèque nationale de France (BnF) Gallica** archive hosts millions o
 
 ---
 
-## 2. System Architecture
-
-```mermaid
-flowchart TD
-    subgraph Data_Collection ["Phase 1: Ingestion Pipeline"]
-        A["BnF Gallica API<br/>(1914 Periodicals)"] -->|"IIIF Image API<br/>(Retry Backoff & Rate-limit)"| B["Raw Scans<br/>data/raw/*.jpg"]
-    end
-
-    subgraph Computer_Vision ["Phase 2: Layout Segmentation"]
-        B --> C["LayoutDetector<br/>(OpenCV)"]
-        C --> D{"Content Validation"}
-        D -->|"Reject"| D1["Black Tears: mean < 45<br/>Text Columns: Var(Lap) > 9000"]
-        D -->|"Accept"| E["Isolated Photos<br/>data/processed/*.jpg"]
-    end
-
-    subgraph Machine_Learning ["Phase 3: Vector Embeddings"]
-        E --> F["MultimodalEmbedder<br/>(clip-ViT-B-32)"]
-        F -->|"512D Image Vectors"| G[("ChromaDB Vector Store<br/>HNSW Cosine Index")]
-    end
-
-    subgraph Serving_Layer ["Phase 4: Serving & UI"]
-        H["User Query<br/>(FR / EN / VI)"] --> I["FastAPI Endpoint<br/>GET /api/search"]
-        I -->|"Text Embedding"| J["clip-ViT-B-32 Multilingual"]
-        J -->|"Cosine Search"| G
-        G -->|"Raw Nearest Neighbors"| K["Score Calibration &<br/>min_similarity Filter"]
-        K --> L["Glassmorphism Web UI<br/>(Live Cards + Lightbox)"]
-    end
-```
-
----
-
-## 3. Key Technical Deep-Dives
+## 2. Key Technical Deep-Dives
 
 ### A. Layout Analysis & Statistical Content Filtering
 Historical scans contain ink stains, torn edges, and dense columns of text. While geometric rules (aspect ratio, minimum area) isolate rectangles, they cannot distinguish a block of small text from a photograph.
@@ -102,7 +71,7 @@ Queries below the confidence threshold (`min_similarity=0.20`, e.g. unrelated qu
 
 ---
 
-## 4. Tech Stack & Engineering Standards
+## 3. Tech Stack & Engineering Standards
 
 | Domain | Technology | Role |
 |---|---|---|
@@ -117,7 +86,7 @@ Queries below the confidence threshold (`min_similarity=0.20`, e.g. unrelated qu
 
 ---
 
-## 5. Quickstart Guide
+## 4. Quickstart Guide
 
 ### 1. Clone & Set Up Environment
 ```bash
@@ -154,7 +123,7 @@ Open your browser to:
 
 ---
 
-## 6. Testing & Code Quality
+## 5. Testing & Code Quality
 
 The repository enforces strict code quality through pre-commit hooks and automated test suites:
 
@@ -169,12 +138,3 @@ uv run mypy src
 uv run ruff check src tests scripts
 uv run ruff format --check .
 ```
-
----
-
-## 7. Author
-
-**Tran Chung**  
-*Engineering Student in Computer Science (AI & Data Engineering)*  
-[Université de Technologie de Compiègne (UTC)](https://www.utc.fr/) — Compiègne, France  
-[GitHub Profile](https://github.com/TrAChg)
